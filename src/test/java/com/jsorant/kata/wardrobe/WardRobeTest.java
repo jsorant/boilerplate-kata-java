@@ -1,7 +1,8 @@
-package com.jsorant.kata;
+package com.jsorant.kata.wardrobe;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.jsorant.kata.UnitTest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

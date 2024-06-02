@@ -1,4 +1,4 @@
-package com.jsorant.kata;
+package com.jsorant.kata.wardrobe;
 
 import java.util.List;
 
