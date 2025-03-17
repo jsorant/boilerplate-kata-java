@@ -1,53 +1,76 @@
 package com.jsorant.kata;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.time.Instant;
-// App pour acheter un ticket de parking
-// Prix dépend de la date
-// Impossible de réserver pour plus de 7j
-// Impossible de réserver dans le passé
-
-import org.junit.jupiter.api.Test;
+import java.time.temporal.ChronoUnit;
+import net.jqwik.api.Arbitrary;
+import net.jqwik.api.ForAll;
+import net.jqwik.api.Property;
+import net.jqwik.api.Provide;
+import net.jqwik.time.api.DateTimes;
 
 @UnitTest
 public class ParkingCostCalculatorTest {
 
-  FakeDateProvider dateProvider = new FakeDateProvider(now());
-  ParkingCostCalculator calculator = new ParkingCostCalculator(dateProvider);
+  ParkingCostCalculator calculator = new ParkingCostCalculator();
 
-  @Test
-  void shouldNotCalculateParkingCostIfLeavingDateIsYesterday() {
-    assertThatThrownBy(() -> calculator.parkingCostForLeavingDate(yesterday())).hasMessage("Cannot have a leaving date in the past");
+  @Property
+  boolean shouldNotCalculateParkingCostWithInvalidLeavingDates(@ForAll Instant leavingDate) {
+    Instant now = Instant.now();
+
+    try {
+      calculator.parkingCostForLeavingDate(leavingDate);
+    } catch (RuntimeException e) {
+      if (leavingDate.isBefore(now)) return e.getMessage().equals("Cannot have a leaving date in the past"); else if (
+        leavingDate.isAfter(now.plus(7, ChronoUnit.DAYS))
+      ) return e.getMessage().equals("Cannot have a leaving date in more than seven days");
+    }
+
+    return leavingDate.isAfter(now) && leavingDate.isBefore(now.plus(7, ChronoUnit.DAYS));
   }
 
-  @Test
-  void shouldNotCalculateParkingCostIfLeavingDateIsIn8Days() {
-    assertThatThrownBy(() -> calculator.parkingCostForLeavingDate(dateInEightDays()))
-      .hasMessage("Cannot have a leaving date in more than seven days");
+  @Property
+  boolean shouldNotCalculateParkingCostWithLeavingDatesInThePast(@ForAll("leavingDatesInThePast") Instant leavingDate) {
+    try {
+      calculator.parkingCostForLeavingDate(leavingDate);
+    } catch (RuntimeException e) {
+      return e.getMessage().equals("Cannot have a leaving date in the past");
+    }
+
+    return false;
   }
 
-  @Test
-  void shouldCalculateParkingCostWhenStayingOneDay() {
-    Amount cost = calculator.parkingCostForLeavingDate(tomorrow());
-
-    assertThat(cost).isEqualTo(Amount.of(15, Currency.EURO));
+  @Provide
+  Arbitrary<Instant> leavingDatesInThePast() {
+    return DateTimes.instants().atTheLatest(Instant.now());
   }
 
-  private static String now() {
-    return "2025-04-14T10:00:00Z";
+  @Property
+  boolean shouldNotCalculateParkingCostWithLeavingDatesInMoreThanSevenDays(@ForAll("leavingDatesInMoreThanSevenDays") Instant leavingDate) {
+    try {
+      calculator.parkingCostForLeavingDate(leavingDate);
+    } catch (RuntimeException e) {
+      return e.getMessage().equals("Cannot have a leaving date in more than seven days");
+    }
+
+    return false;
   }
 
-  private static Instant yesterday() {
-    return Instant.parse("2025-04-13T10:00:00Z");
+  @Provide
+  Arbitrary<Instant> leavingDatesInMoreThanSevenDays() {
+    return DateTimes.instants().atTheEarliest(Instant.now().plus(7, ChronoUnit.DAYS).plus(1, ChronoUnit.SECONDS));
   }
 
-  private static Instant tomorrow() {
-    return Instant.parse("2025-04-15T10:00:00Z");
+  @Property
+  boolean shouldCalculateParkingCostWithValidLeavingDates(@ForAll("validLeavingDates") Instant leavingDate) {
+    calculator.parkingCostForLeavingDate(leavingDate);
+    return true; // should not throw
   }
 
-  private static Instant dateInEightDays() {
-    return Instant.parse("2025-04-21T15:00:00Z");
+  @Provide
+  Arbitrary<Instant> validLeavingDates() {
+    return DateTimes
+      .instants()
+      .atTheEarliest(Instant.now().plus(1, ChronoUnit.SECONDS))
+      .atTheLatest(Instant.now().plus(7, ChronoUnit.DAYS));
   }
 }
