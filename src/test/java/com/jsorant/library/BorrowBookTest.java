@@ -10,8 +10,14 @@ import org.junit.jupiter.api.Test;
 @UnitTest
 public class BorrowBookTest {
 
-  // Check exists
-  // Check is available
+  // BorrowBook
+  // - the book must exist
+  // - the book must be available
+  // - the book must not be added to the borrower's list of borrowed books if the borrower already has four books borrowed
+  // - the borrower must receive an email
+  // - the book cannot be plan for return before the date of the borrow
+  // - the book cannot be plan for return in more than one month (faire un test ciblé sur la réservation avec une date de retour plus tard pour lier la règle à ce détail d'implementation)
+  // - the book must be added to the borrower's list of borrowed books (faire un test qui vérifie les données en base de données plutôt qu'un get)
 
   @Test
   void shouldNotBorrowBookWhenBookNotExists() {
@@ -114,5 +120,30 @@ public class BorrowBookTest {
       new BookBorrowedNotification("jeremy.sorant@domain.fr", "The Hobbit", Instant.parse("2025-04-14T10:00:00Z")),
       emailSender.lastNotification()
     );
+  }
+
+  @Test
+  void shouldGetBorrowedBooks() {
+    InMemoryBookRepository bookRepository = new InMemoryBookRepository();
+    bookRepository.save(new Book("3214515512", "The Lord of the Rings", "JRR Tolkien", BookType.NOVEL));
+    bookRepository.save(new Book("1234567890", "The Hobbit", "JRR Tolkien", BookType.NOVEL));
+    bookRepository.save(new Book("4083U14844", "Harry Potter and the Philosopher's Stone", "JK Rowling", BookType.NOVEL));
+
+    InMemoryBorrowsRepository borrowsRepository = new InMemoryBorrowsRepository();
+
+    FakeEmailSender emailSender = new FakeEmailSender();
+
+    new BorrowBook(bookRepository, borrowsRepository, emailSender)
+      .as("jeremy.sorant@domain.fr")
+      .bookId("1234567890")
+      .date(Instant.parse("2025-04-14T10:00:00Z"))
+      .act();
+
+    new BorrowBook(bookRepository, borrowsRepository, emailSender)
+      .as("jeremy.sorant@domain.fr")
+      .bookId("4083U14844")
+      .date(Instant.parse("2025-04-14T10:00:00Z"))
+      .act();
+    // test the content of the database
   }
 }
